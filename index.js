@@ -1,16 +1,17 @@
 require("dotenv").config();
 const express = require("express");
-const AWS = require("aws-sdk");
+
+const smsRoutes = require("./routes/smsRoutes");
+const emailRoutes = require("./routes/emailRoutes");
+const httpRoutes = require("./routes/htppRoutes");
 
 const app = express();
-const credentials = new AWS.SharedIniFileCredentials({
-  profile: "wahyuEndySantoso",
-});
-const sns = new AWS.SNS({ credentials, region: "ap-southeast-1" });
 const port = 3000;
-const topicArn = "arn:aws:sns:ap-southeast-1:010765115127:myStackAbuseTopic";
 
 app.use(express.json());
+app.use(smsRoutes);
+app.use(emailRoutes);
+app.use(httpRoutes);
 app.get("/status", (req, res) => res.json({ status: "ok", sns: sns }));
 
 // ! subscribe endpoints
@@ -34,8 +35,17 @@ app.post("/subscribe", (req, res) => {
 
 // ! publisher endpoints
 app.post("/send", (req, res) => {
+  let now = new Date().toString();
+  let email = `${req.body.message} \n \n This was sent: ${now}`;
+  let message = {
+    default: "SNS Notification",
+    email: "Hello from SNS on email",
+    sms: "Hello from SNS on SMS",
+  };
+
   let params = {
-    Message: req.body.message,
+    Message: JSON.stringify(message),
+    MessageStructure: "json",
     Subject: req.body.subject,
     TopicArn: topicArn,
   };
@@ -43,60 +53,7 @@ app.post("/send", (req, res) => {
   sns
     .publish(params)
     .promise()
-    .then((data) => {
-      console.log(data);
-    })
-    .catch((err) => {
-      console.error(err, err.stack);
-    });
-});
 
-app.post("/subscribe-email", (req, res) => {
-  let params = {
-    Protocol: "EMAIL",
-    TopicArn: topicArn,
-    Endpoint: req.body.email,
-  };
-
-  let promiseResult = sns.subscribe(params).promise();
-
-  promiseResult
-    .then((data) => {
-      console.log(data);
-    })
-    .catch((err) => {
-      console.error(err, err.stack);
-    });
-});
-
-app.post("/subscribe-sms", (req, res) => {
-  let params = {
-    Protocol: "SMS",
-    TopicArn: topicArn,
-    Endpoint: req.body.number || "+6281310338777",
-  };
-
-  let promiseResult = sns.subscribe(params).promise();
-
-  promiseResult
-    .then((data) => {
-      console.log(data);
-    })
-    .catch((err) => {
-      console.error(err, err.stack);
-    });
-});
-
-app.post("/send-sms", (req, res) => {
-  let message = `${req.body.message}`;
-  let params = {
-    Message: message || "hai ini cuma test sms dengan SNS",
-    TopicArn: topicArn,
-  };
-
-  sns
-    .publish(params)
-    .promise()
     .then((data) => {
       console.log(data);
     })
